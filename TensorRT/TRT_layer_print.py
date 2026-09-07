@@ -4,7 +4,7 @@
 
 build_trt_engine.py 가 덤프한 `<engine>.engine.layers.json` 을 읽어, 원본 ONNX(=PyTorch)
 레이어가 TensorRT 커널로 오면서 **어떻게 합쳐지고 이름이 바뀌었는지** 텍스트로 출력한다.
-(.md 정리본이 필요하면 → TensorRT/analysis.py)
+(.pt 모듈 단위 "커널 몇 개로 분해됐나" 는 → TensorRT/compare_pt_trt.py)
 
     [1] TensorRT 커널 → 원본 ONNX 레이어   (엔진 실행 순서)
     [2] 원본 ONNX 레이어 → TensorRT 커널   (역방향)
@@ -51,7 +51,7 @@ STAGE_RE = re.compile(r"model[._/](\d+)")
 
 
 # --------------------------------------------------------------------------- #
-# 파싱 & 분석  (analysis.py 도 이 함수들을 그대로 import 해서 씀)
+# 파싱 & 분석  (compare_pt_trt.py 가 onnx_layers_of 를 import 해서 씀)
 # --------------------------------------------------------------------------- #
 def load_engine_layers(path: Path):
     if not path.exists():

@@ -73,11 +73,12 @@ python TensorRT/TRT_visualize_model.py \
 |---|---|
 | `find_repo_root()` + `main()` `os.chdir()` | repo 루트 탐색 후 그리로 이동 → 모든 경로는 repo 루트 기준 상대경로(`model/…`). 어디서 실행해도 동작 |
 | `load_layers()` | `layers.json` → `Layers` 리스트 + `Bindings` |
-| `build_producer()` | 텐서 이름 → 그 텐서를 만든 레이어 idx |
+| `build_producers()` | 텐서 이름 → 그 이름을 출력하는 레이어 idx **리스트**. TRT 는 zero-copy Concat fusion·myelin 내부 텐서 때문에 한 이름을 여러 레이어가 출력하므로 dict 로 접지 않는다 |
+| `producer_for()` | `build_producers()` 결과에서 소비자 바로 앞(가장 가까운 선행) 생산자를 고름 → 이름이 재사용돼도 올바른 producer. 이게 그래프가 거꾸로 그려지던 버그의 핵심 수정 |
 | `stage_of()` | 레이어 Name/Metadata 에서 `model.(\d+)` 추출 → 원본 단계 번호 |
 | `family()` | LayerType → (짧은 계열명, 색) |
-| `graph_stage()` | 단계별로 레이어를 묶고, cross-stage 텐서 의존으로 엣지 생성. 연속 단계 사이 invisible spine 추가 |
-| `graph_layer()` | 커널 레이어 노드화. `--hide` 대상은 건너뛰되 조상↔자손을 이어줌(bridge). id 순서 spine 추가 |
+| `graph_stage()` | 단계별로 레이어를 묶고, `producer_for()` 로 cross-stage 텐서 의존 엣지 생성. **역방향(높은→낮은 stage) 엣지는 이름 충돌로 잘못 이어진 가짜이므로 버린다** (YOLO 는 순방향). 연속 단계 사이 invisible spine 추가 |
+| `graph_layer()` | 커널 레이어 노드화. `--hide` 대상은 건너뛰되 조상↔자손을 이어줌(bridge). `producer_for()` 로 조상 추적. id 순서 spine 추가 |
 | `build_dot()` | `rankdir=TB` + `weight=10` invisible spine 으로 세로 강제. 색/테두리 적용 |
 | `render()` | python `graphviz` → 실패 시 `dot` 실행파일 |
 
@@ -87,3 +88,20 @@ python TensorRT/TRT_visualize_model.py \
   독립 노드로 안 나올 수 있다 — 이게 정상이며 fusion 됐다는 뜻.
 - `post-process` 노드(end2end decode/NMS, `__myl_*` fused kernel)는 텐서 이름이
   많이 바뀌어 상위 단계와 엣지가 안 붙을 수 있다.
+
+## 그래프가 "거꾸로(백워드)" 그려지던 문제 — 수정됨
+
+이전 버전은 `model.11 → model.7`, `model.14 → model.5`, `model.23 → model.10` 처럼
+**위로 향하는 가짜 엣지**와 `model.10 ⇄ model.22 ⇄ model.23` 사이클이 그려졌다.
+실제 TRT 엔진은 정상 순방향 DAG 인데, 스크립트가 그래프를 **텐서 이름 문자열**로
+재구성하면서 TRT fusion 때문에 이름이 겹쳐 producer 를 잘못 잡은 탓이었다.
+
+| 원인 | 내용 |
+|---|---|
+| zero-copy Concat fusion | `/model.15/Concat_output_0` 를 model.4 활성화와 model.14 reformat 이 **둘 다** 출력. 옛 `build_producer()` 는 dict 라 마지막(model.14)만 남겨 model.5 소비자를 model.14 에 연결 |
+| myelin 내부 텐서 재사용 | `__myln_k_arg__bb1_8` 등을 model.10/22/23 attention·decode 서브그래프가 같은 이름으로 재사용 → 마지막(model.23)이 producer 로 남아 역방향 엣지 |
+
+**수정**: `build_producers()` 가 이름당 생산자 **리스트**를 유지하고,
+`producer_for()` 가 "소비자 바로 앞의 쓰기" 를 고른다(=TRT 실행 순서상 실제 생산자).
+추가 안전망으로 `graph_stage()` 는 남은 역방향 stage 엣지를 버린다.
+수정 후 `stage` 그래프는 모든 화살표가 아래로 흐르고 원본 구조와 1:1로 대응한다.

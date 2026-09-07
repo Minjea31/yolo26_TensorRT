@@ -20,8 +20,8 @@
 | `ori_visualize_model.py` | **원본** `best.pt` 레이어 구조 → 세로 그래프 (`model/ori_structure.png`). 상세: [`ori_visualize_model.md`](ori_visualize_model.md) |
 | `build_trt_engine.py` | `best.pt` → ONNX → TensorRT 엔진(.engine) 2단계 변환 + `best.engine.layers.json` 덤프. 상세: [`build_trt_engine.md`](build_trt_engine.md) |
 | `TRT_visualize_model.py` | **TensorRT 적용 후** 구조 (`best.engine.layers.json`) → 세로 그래프 (`model/TRT_structure.png`). 상세: [`TRT_visualize_model.md`](TRT_visualize_model.md) |
-| `TRT_layer_print.py` | 원본 ONNX ↔ TRT 커널 **이름 변화(fusion/rename)** 를 터미널에 출력. `analyze()` 를 `analysis.py` 가 재사용. 상세: [`TRT_layer_print.md`](TRT_layer_print.md) |
-| `analysis.py` | 위 분석을 **`.md` 문서**로 정리 (`model/TRT_layer_analysis.md`). 상세: [`analysis.md`](analysis.md) |
+| `TRT_layer_print.py` | 원본 ONNX ↔ TRT 커널 **이름 변화(fusion/rename)** 를 터미널에 출력 + `--json` 대응표 저장. 상세: [`TRT_layer_print.md`](TRT_layer_print.md) |
+| `compare_pt_trt.py` | **`.pt` 모듈(24개) ↔ TRT 커널(316개)** 집계 비교 → `model/pt_vs_trt.md`. 각 `model.N` 을 `내부 leaf 레이어 수 → TRT 커널 수` 로. `--onnx` 명시 시 가운데 ONNX 노드 수 추가(기본 꺼짐). 상세: [`compare_pt_trt.md`](compare_pt_trt.md) |
 
 ## (예정) 구성
 

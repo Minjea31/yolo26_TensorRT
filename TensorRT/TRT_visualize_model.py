@@ -128,21 +128,43 @@ def dot_escape(s: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# producer map (텐서 -> 만든 레이어 idx)
+# producer map (텐서 이름 -> 그 텐서를 출력하는 레이어 idx 들)
 # --------------------------------------------------------------------------- #
-def build_producer(layers):
-    prod = {}
+def build_producers(layers):
+    """텐서 이름 -> 그 이름을 출력하는 레이어 idx 리스트(오름차순).
+
+    단일 dict[name]=i 로 접으면 안 되는 이유: TensorRT 는
+      * zero-copy Concat fusion  — 하나의 concat 버퍼를 여러 레이어가 나눠 씀
+        (예: `/model.15/Concat_output_0` 를 model.4 활성화와 model.14 reformat 이 둘 다 출력)
+      * myelin 내부 스크래치 텐서 — 같은 이름(`__myln_*`, `__mye*`)을
+        서로 다른 fused 서브그래프(model.10/22/23 attention·decode)가 재사용
+    때문에 한 텐서 이름을 여러 레이어가 출력한다. dict 로 접으면 '마지막'
+    생산자만 남아, 이른 소비자(model.5, model.7 …)가 뒤쪽(더 높은 stage)
+    레이어에 연결돼 그래프가 거꾸로(위로) 그려진다.
+    """
+    prod = defaultdict(list)
     for i, L in enumerate(layers):
         for o in L.get("Outputs", []):
-            prod[o["Name"]] = i
+            prod[o["Name"]].append(i)
     return prod
+
+
+def producer_for(prod, name, consumer_idx):
+    """`name` 을 출력하는 레이어 중 소비자 바로 앞(가장 가까운 선행) 것.
+    선행이 없으면 가장 이른 것. TensorRT 실행 순서상 '읽기 직전의 쓰기' 가
+    실제 생산자이므로, 이름이 재사용돼도 올바른 producer 를 고른다."""
+    cands = prod.get(name)
+    if not cands:
+        return None
+    before = [p for p in cands if p < consumer_idx]
+    return before[-1] if before else cands[0]
 
 
 # --------------------------------------------------------------------------- #
 # STAGE 레벨
 # --------------------------------------------------------------------------- #
 def graph_stage(layers, bindings):
-    prod = build_producer(layers)
+    prod = build_producers(layers)
 
     def skey(k):
         return (0, int(k)) if (k and k.isdigit()) else (1, k or "zz")
@@ -175,19 +197,30 @@ def graph_stage(layers, bindings):
 
     # 단계 간 엣지: cross-stage 텐서 의존
     real = set()
+    dropped_back = 0
     for i, L in enumerate(layers):
         dst = stage_of(L) or "post"
         for inp in L.get("Inputs", []):
-            p = prod.get(inp["Name"])
+            p = producer_for(prod, inp["Name"], i)
             if p is None:
                 continue
             src = stage_of(layers[p]) or "post"
-            if src != dst:
-                real.add((sidx[src], sidx[dst]))
+            if src == dst:
+                continue
+            # YOLO 는 순방향: model.N 은 항상 더 낮은 N 에서만 입력을 받는다.
+            # 그래도 역방향(높은 stage -> 낮은 stage)이 남으면 TRT 이름 충돌로
+            # 잘못 이어진 가짜 엣지 -> 버린다 (그래프가 거꾸로 그려지던 원인).
+            if src.isdigit() and dst.isdigit() and int(src) > int(dst):
+                dropped_back += 1
+                continue
+            real.add((sidx[src], sidx[dst]))
 
     # 세로 정렬용 보이지 않는 척추(spine): 연속 단계 사이
     spine = [(n, n + 1) for n in range(len(stages) - 1)]
-    return nodes, sorted(real), spine, f"{len(stages)} stages"
+    sub = f"{len(stages)} stages"
+    if dropped_back:
+        sub += f" (역방향 가짜 엣지 {dropped_back}개 제거)"
+    return nodes, sorted(real), spine, sub
 
 
 # --------------------------------------------------------------------------- #
@@ -209,17 +242,17 @@ def short_name(layer: dict, limit=40):
 
 
 def graph_layer(layers, bindings, hide):
-    prod = build_producer(layers)
+    prod = build_producers(layers)
 
     def hidden(i):
         t = layers[i]["LayerType"].lower()
         return any(h and h in t for h in hide)
 
     def vis_ancestors(i, seen=None):
-        seen = seen or set()
+        seen = seen if seen is not None else set()
         res = set()
         for inp in layers[i].get("Inputs", []):
-            p = prod.get(inp["Name"])
+            p = producer_for(prod, inp["Name"], i)
             if p is None or p in seen:
                 continue
             seen.add(p)

@@ -3,9 +3,9 @@
 **[TensorRT 레이어 이름 변화 — 터미널 출력]**
 `build_trt_engine.py` 가 덤프한 `best.engine.layers.json` (+ `best.onnx`) 를 읽어,
 원본 ONNX(=PyTorch) 레이어가 TensorRT 커널로 오면서 **어떻게 합쳐지고 이름이 바뀌었는지**
-를 stdout 으로 출력한다.
+를 stdout 으로 출력한다. `--json` 으로 대응표를 파일로도 저장한다.
 
-> `.md` 정리본이 필요하면 → [`analysis.py`](analysis.md) (같은 분석 로직 재사용)
+> `.pt` 모듈 단위로 "커널 몇 개로 분해됐나" 를 보려면 → [`compare_pt_trt.py`](compare_pt_trt.md)
 
 ## 입력
 
@@ -50,7 +50,8 @@ python TensorRT/TRT_layer_print.py --width 60                   # 긴 이름 자
 | `load_engine_layers()` | JSON → `Layers` + `Bindings` |
 | `onnx_layers_of()` | 레이어 `Metadata` 의 `[ONNX Layer: X]` 들 추출 (= fusion 원본 목록) |
 | `classify()` | `Name` vs `Metadata` 비교 → keep/rename/fuse/new-io/new-int |
-| `analyze()` | 위를 모아 구조화된 dict 반환 — **`analysis.py` 가 이걸 import** |
+| `analyze()` | 위를 모아 구조화된 dict 반환 |
+| `onnx_layers_of()` | `compare_pt_trt.py` 가 stage 판정에 import |
 | `print_report()` | dict → 터미널 텍스트 |
 
 ## 현재 엔진 기준 (FP32) 대략

@@ -1,0 +1,13 @@
+train: dataset/train/images
+val: dataset/val/images
+test: dataset/test/images
+
+nc: 1
+names: ['CAR']
+
+roboflow:
+  workspace: clothoid-ryhpb
+  project: crash_test
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/clothoid-ryhpb/crash_test/dataset/1

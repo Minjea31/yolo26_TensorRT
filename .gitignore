@@ -1,0 +1,4 @@
+# ── Claude Code ──────────────────────────────────────────────
+.claude/                 # 프로젝트 로컬 Claude Code 설정·커맨드·에이전트·스킬
+CLAUDE.local.md          # 개인용 메모 (팀 공유용은 CLAUDE.md 로, 이건 커밋 안 함)
+.claude.json             # 로컬 상태/캐시

@@ -1,0 +1,211 @@
+digraph kernel_compare {
+  graph [rankdir=TB, newrank=true, dpi=150, nodesep=0.30, ranksep=0.60, fontname="Helvetica", labelloc="t", fontsize=16, label="best  —  .pt 구조 vs TensorRT 구조 (커널 사용 위치)\neager CUDA 커널 런치 493회    ↔    TRT 316 커널 (매핑 313 + post 3)\n왼쪽 노드 = eager 런치 수 + 호출한 aten op 분해(conv/bn/silu/add/cat)   ·   오른쪽 노드 = 남은 TRT 커널 종류   ·   점선 = 런치 수 → TRT 커널 수  (초록 감소 · 주황 증가)"];
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10];
+  edge [fontname="Helvetica", fontsize=8, color="#5b6b7c"];
+  PT_HEAD  [label="■ .pt 원본\neager: 실제 CUDA 커널 런치 수", shape=plaintext, fontsize=13, fontcolor="#495057"];
+  TRT_HEAD [label="■ TensorRT engine (fusion 후)\n남은 실제 커널", shape=plaintext, fontsize=13, fontcolor="#495057"];
+  { rank=same; PT_HEAD; TRT_HEAD; }
+  PT_HEAD  -> L0 [style=invis];
+  TRT_HEAD -> R0 [style=invis];
+  L0 [label="0  Conv  ·  1x16x320x320\n3 kernel launches\nconv×1 bn×1 silu×1", fillcolor="#d0ebff"];
+  L1 [label="1  Conv  ·  1x32x160x160\n3 kernel launches\nconv×1 bn×1 silu×1", fillcolor="#d0ebff"];
+  L2 [label="2  C3k2  ·  1x64x160x160\n15 kernel launches\nconv×5 bn×4 silu×4 add×1 cat×1", fillcolor="#d0ebff"];
+  L3 [label="3  Conv  ·  1x64x80x80\n6 kernel launches\nconv×4 bn×1 silu×1", fillcolor="#d0ebff"];
+  L4 [label="4  C3k2  ·  1x128x80x80\n16 kernel launches\nconv×6 bn×4 silu×4 add×1 cat×1", fillcolor="#d0ebff"];
+  L5 [label="5  Conv  ·  1x128x40x40\n6 kernel launches\nconv×4 bn×1 silu×1", fillcolor="#d0ebff"];
+  L6 [label="6  C3k2  ·  1x128x40x40\n35 kernel launches\nconv×13 bn×9 silu×9 add×2 cat×2", fillcolor="#d0ebff"];
+  L7 [label="7  Conv  ·  1x256x20x20\n5 kernel launches\nconv×3 bn×1 silu×1", fillcolor="#d0ebff"];
+  L8 [label="8  C3k2  ·  1x256x20x20\n39 kernel launches\nconv×17 bn×9 silu×9 add×2 cat×2", fillcolor="#d0ebff"];
+  L9 [label="9  SPPF  ·  1x256x20x20\n10 kernel launches\npool×3 conv×2 bn×2 cat×1 silu×1 add×1", fillcolor="#d0ebff"];
+  L10 [label="10  C2PSA  ·  1x256x20x20\n26 kernel launches\nconv×7 bn×7 silu×3 add×3 matmul×2 mul×1 +3", fillcolor="#d0ebff"];
+  L11 [label="11  Upsample  ·  1x256x40x40\n1 kernel launches\nresize×1", fillcolor="#e5dbff"];
+  L12 [label="12  Concat  ·  1x384x40x40\n1 kernel launches\ncat×1", fillcolor="#e5dbff"];
+  L13 [label="13  C3k2  ·  1x128x40x40\n35 kernel launches\nconv×13 bn×9 silu×9 add×2 cat×2", fillcolor="#d3f9d8"];
+  L14 [label="14  Upsample  ·  1x128x80x80\n1 kernel launches\nresize×1", fillcolor="#e5dbff"];
+  L15 [label="15  Concat  ·  1x256x80x80\n1 kernel launches\ncat×1", fillcolor="#e5dbff"];
+  L16 [label="16  C3k2  ·  1x64x80x80\n35 kernel launches\nconv×13 bn×9 silu×9 add×2 cat×2", fillcolor="#d3f9d8"];
+  L17 [label="17  Conv  ·  1x64x40x40\n5 kernel launches\nconv×3 bn×1 silu×1", fillcolor="#d3f9d8"];
+  L18 [label="18  Concat  ·  1x192x40x40\n1 kernel launches\ncat×1", fillcolor="#e5dbff"];
+  L19 [label="19  C3k2  ·  1x128x40x40\n35 kernel launches\nconv×13 bn×9 silu×9 add×2 cat×2", fillcolor="#d3f9d8"];
+  L20 [label="20  Conv  ·  1x128x20x20\n5 kernel launches\nconv×3 bn×1 silu×1", fillcolor="#d3f9d8"];
+  L21 [label="21  Concat  ·  1x384x20x20\n1 kernel launches\ncat×1", fillcolor="#e5dbff"];
+  L22 [label="22  C3k2  ·  1x256x20x20\n37 kernel launches\nconv×13 bn×9 silu×5 add×4 matmul×2 mul×1 +3", fillcolor="#d3f9d8"];
+  L23 [label="23  Detect  ·  1x300x6\n171 kernel launches\nconv×64 bn×36 silu×36 add×14 cat×7 copy×6 +8", fillcolor="#ffd8a8"];
+  R0 [label="0  3 kernels\nreformat×1 conv×1 pointwise×1\nf32", fillcolor="#f1f3f5"];
+  R1 [label="1  3 kernels\nnoop×1 conv×1 pointwise×1\nf32", fillcolor="#f1f3f5"];
+  R2 [label="2  10 kernels\nconv×4 pointwise×4 reformat×2\nf32", fillcolor="#d0ebff"];
+  R3 [label="3  2 kernels\nconv×1 pointwise×1\nf32", fillcolor="#d0ebff"];
+  R4 [label="4  10 kernels\npointwise×4 conv×3 reformat×2 gemm×1\nf32", fillcolor="#d3f9d8"];
+  R5 [label="5  2 kernels\nconv×1 pointwise×1\nf32", fillcolor="#d0ebff"];
+  R6 [label="6  26 kernels\npointwise×9 conv×7 noop×6 reformat×3\nf32", fillcolor="#d3f9d8"];
+  R7 [label="7  3 kernels\nconv×1 noop×1 pointwise×1\nf32", fillcolor="#d0ebff"];
+  R8 [label="8  25 kernels\npointwise×9 noop×6 gemm×4 conv×4\nf32", fillcolor="#d3f9d8"];
+  R9 [label="9  13 kernels\nnoop×4 pool×3 reformat×3 gemm×2\nf32", fillcolor="#f1f3f5"];
+  R10 [label="10  30 kernels\ngemm×8 noop×7 reformat×7 post×4\nf32", fillcolor="#e5dbff"];
+  R11 [label="11  1 kernels\nresize×1\nf32", fillcolor="#ffe8cc"];
+  R12 [label="12  1 kernels\nreformat×1\nf32", fillcolor="#f1f3f5"];
+  R13 [label="13  26 kernels\npointwise×9 conv×7 noop×6 reformat×3\nf32", fillcolor="#d3f9d8"];
+  R14 [label="14  1 kernels\nresize×1\nf32", fillcolor="#ffe8cc"];
+  R15 [label="15  1 kernels\nreformat×1\nf32", fillcolor="#f1f3f5"];
+  R16 [label="16  24 kernels\npointwise×9 conv×6 noop×4 reformat×3\nf32", fillcolor="#d3f9d8"];
+  R17 [label="17  2 kernels\nconv×1 pointwise×1\nf32", fillcolor="#d0ebff"];
+  R18 [label="18  1 kernels\nreformat×1\nf32", fillcolor="#f1f3f5"];
+  R19 [label="19  25 kernels\npointwise×9 conv×7 noop×5 reformat×3\nf32", fillcolor="#d3f9d8"];
+  R20 [label="20  2 kernels\nconv×1 pointwise×1\nf32", fillcolor="#d0ebff"];
+  R21 [label="21  1 kernels\nreformat×1\nf32", fillcolor="#f1f3f5"];
+  R22 [label="22  35 kernels\ngemm×8 reformat×8 noop×7 pointwise×5\nf32", fillcolor="#e5dbff"];
+  R23 [label="23  66 kernels\nconv×19 pointwise×18 noop×14 post×7\nf32/i64", fillcolor="#d0ebff"];
+  Rpost [label="post-process\n3 kernels\nshape_call×3", fillcolor="#ffffff"];
+  L0 -> L1 [style=invis, weight=100];
+  R0 -> R1 [style=invis, weight=100];
+  L1 -> L2 [style=invis, weight=100];
+  R1 -> R2 [style=invis, weight=100];
+  L2 -> L3 [style=invis, weight=100];
+  R2 -> R3 [style=invis, weight=100];
+  L3 -> L4 [style=invis, weight=100];
+  R3 -> R4 [style=invis, weight=100];
+  L4 -> L5 [style=invis, weight=100];
+  R4 -> R5 [style=invis, weight=100];
+  L5 -> L6 [style=invis, weight=100];
+  R5 -> R6 [style=invis, weight=100];
+  L6 -> L7 [style=invis, weight=100];
+  R6 -> R7 [style=invis, weight=100];
+  L7 -> L8 [style=invis, weight=100];
+  R7 -> R8 [style=invis, weight=100];
+  L8 -> L9 [style=invis, weight=100];
+  R8 -> R9 [style=invis, weight=100];
+  L9 -> L10 [style=invis, weight=100];
+  R9 -> R10 [style=invis, weight=100];
+  L10 -> L11 [style=invis, weight=100];
+  R10 -> R11 [style=invis, weight=100];
+  L11 -> L12 [style=invis, weight=100];
+  R11 -> R12 [style=invis, weight=100];
+  L12 -> L13 [style=invis, weight=100];
+  R12 -> R13 [style=invis, weight=100];
+  L13 -> L14 [style=invis, weight=100];
+  R13 -> R14 [style=invis, weight=100];
+  L14 -> L15 [style=invis, weight=100];
+  R14 -> R15 [style=invis, weight=100];
+  L15 -> L16 [style=invis, weight=100];
+  R15 -> R16 [style=invis, weight=100];
+  L16 -> L17 [style=invis, weight=100];
+  R16 -> R17 [style=invis, weight=100];
+  L17 -> L18 [style=invis, weight=100];
+  R17 -> R18 [style=invis, weight=100];
+  L18 -> L19 [style=invis, weight=100];
+  R18 -> R19 [style=invis, weight=100];
+  L19 -> L20 [style=invis, weight=100];
+  R19 -> R20 [style=invis, weight=100];
+  L20 -> L21 [style=invis, weight=100];
+  R20 -> R21 [style=invis, weight=100];
+  L21 -> L22 [style=invis, weight=100];
+  R21 -> R22 [style=invis, weight=100];
+  L22 -> L23 [style=invis, weight=100];
+  R22 -> R23 [style=invis, weight=100];
+  R23 -> Rpost [style=invis, weight=100];
+  L0 -> L1;
+  L1 -> L2;
+  L2 -> L3;
+  L3 -> L4;
+  L4 -> L5;
+  L5 -> L6;
+  L6 -> L7;
+  L7 -> L8;
+  L8 -> L9;
+  L9 -> L10;
+  L10 -> L11;
+  L11 -> L12 [color="#e8590c", penwidth=1.8];
+  L6 -> L12 [color="#e8590c", penwidth=1.8, constraint=false];
+  L12 -> L13;
+  L13 -> L14;
+  L14 -> L15 [color="#e8590c", penwidth=1.8];
+  L4 -> L15 [color="#e8590c", penwidth=1.8, constraint=false];
+  L15 -> L16;
+  L16 -> L17;
+  L17 -> L18 [color="#e8590c", penwidth=1.8];
+  L13 -> L18 [color="#e8590c", penwidth=1.8, constraint=false];
+  L18 -> L19;
+  L19 -> L20;
+  L20 -> L21 [color="#e8590c", penwidth=1.8];
+  L10 -> L21 [color="#e8590c", penwidth=1.8, constraint=false];
+  L21 -> L22;
+  L16 -> L23 [color="#e8590c", penwidth=1.8, constraint=false];
+  L19 -> L23 [color="#e8590c", penwidth=1.8, constraint=false];
+  L22 -> L23 [color="#e8590c", penwidth=1.8];
+  R0 -> R1;
+  R1 -> R2;
+  R10 -> R11;
+  R10 -> R21 [constraint=false];
+  R11 -> R12;
+  R12 -> R13;
+  R13 -> R14;
+  R13 -> R18 [constraint=false];
+  R14 -> R15;
+  R15 -> R16;
+  R16 -> R17;
+  R16 -> R23 [constraint=false];
+  R18 -> R19;
+  R19 -> R20;
+  R19 -> R23 [constraint=false];
+  R2 -> R3;
+  R21 -> R22;
+  R22 -> R23;
+  R3 -> R4;
+  R4 -> R5;
+  R5 -> R6;
+  R6 -> R7;
+  R7 -> R8;
+  R8 -> R9;
+  R9 -> R10;
+  R17 -> R18 [style=dotted, color="#ced4da", constraint=false, label="추정", fontsize=7, fontcolor="#adb5bd"];
+  R20 -> R21 [style=dotted, color="#ced4da", constraint=false, label="추정", fontsize=7, fontcolor="#adb5bd"];
+  R23 -> Rpost [style=dotted, color="#ced4da", constraint=false];
+  { rank=same; L0; R0; }
+  L0 -> R0 [constraint=false, style=dashed, penwidth=1.2, color="#868e96", fontcolor="#868e96", label="3 → 3"];
+  { rank=same; L1; R1; }
+  L1 -> R1 [constraint=false, style=dashed, penwidth=1.2, color="#868e96", fontcolor="#868e96", label="3 → 3"];
+  { rank=same; L2; R2; }
+  L2 -> R2 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="15 → 10"];
+  { rank=same; L3; R3; }
+  L3 -> R3 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="6 → 2"];
+  { rank=same; L4; R4; }
+  L4 -> R4 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="16 → 10"];
+  { rank=same; L5; R5; }
+  L5 -> R5 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="6 → 2"];
+  { rank=same; L6; R6; }
+  L6 -> R6 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="35 → 26"];
+  { rank=same; L7; R7; }
+  L7 -> R7 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="5 → 3"];
+  { rank=same; L8; R8; }
+  L8 -> R8 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="39 → 25"];
+  { rank=same; L9; R9; }
+  L9 -> R9 [constraint=false, style=dashed, penwidth=1.2, color="#f08c00", fontcolor="#f08c00", label="10 → 13"];
+  { rank=same; L10; R10; }
+  L10 -> R10 [constraint=false, style=dashed, penwidth=1.2, color="#f08c00", fontcolor="#f08c00", label="26 → 30"];
+  { rank=same; L11; R11; }
+  L11 -> R11 [constraint=false, style=dashed, penwidth=1.2, color="#868e96", fontcolor="#868e96", label="1 → 1"];
+  { rank=same; L12; R12; }
+  L12 -> R12 [constraint=false, style=dashed, penwidth=1.2, color="#868e96", fontcolor="#868e96", label="1 → 1"];
+  { rank=same; L13; R13; }
+  L13 -> R13 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="35 → 26"];
+  { rank=same; L14; R14; }
+  L14 -> R14 [constraint=false, style=dashed, penwidth=1.2, color="#868e96", fontcolor="#868e96", label="1 → 1"];
+  { rank=same; L15; R15; }
+  L15 -> R15 [constraint=false, style=dashed, penwidth=1.2, color="#868e96", fontcolor="#868e96", label="1 → 1"];
+  { rank=same; L16; R16; }
+  L16 -> R16 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="35 → 24"];
+  { rank=same; L17; R17; }
+  L17 -> R17 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="5 → 2"];
+  { rank=same; L18; R18; }
+  L18 -> R18 [constraint=false, style=dashed, penwidth=1.2, color="#868e96", fontcolor="#868e96", label="1 → 1"];
+  { rank=same; L19; R19; }
+  L19 -> R19 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="35 → 25"];
+  { rank=same; L20; R20; }
+  L20 -> R20 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="5 → 2"];
+  { rank=same; L21; R21; }
+  L21 -> R21 [constraint=false, style=dashed, penwidth=1.2, color="#868e96", fontcolor="#868e96", label="1 → 1"];
+  { rank=same; L22; R22; }
+  L22 -> R22 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="37 → 35"];
+  { rank=same; L23; R23; }
+  L23 -> R23 [constraint=false, style=dashed, penwidth=1.2, color="#2f9e44", fontcolor="#2f9e44", label="171 → 66"];
+}

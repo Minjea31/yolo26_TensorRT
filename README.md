@@ -65,10 +65,3 @@ sudo apt-get install -y graphviz         # visualize_model.py 그래프 렌더�
 
 > 이미지를 클릭하면 원본 해상도로 볼 수 있다. 커널 단위 전체 그래프는
 > `python TensorRT/TRT_visualize_model.py --level layer` 로 별도 생성.
-
-## 작업 규칙
-
-- **코드 파일 = 같은 이름의 `.md` 문서**를 같은 폴더에 함께 둔다. (예: `build_trt_engine.py` ↔ `build_trt_engine.md`)
-- 코드를 **수정할 때마다** 위 "스크립트 설명" 표에 간단한 설명을 추가/갱신한다.
-- **TensorRT 관련 `.py` 는 모두 [`TensorRT/`](TensorRT/README.md) 폴더에서 관리한다.** (`.pt` → ONNX → 엔진 파이프라인, 모델 검사/시각화 포함)
-- **그래프 출력 스크립트 접두사**: 원본 모델 = `ori_`, TensorRT 적용 후 = `TRT_`. 출력 이미지도 동일(`ori_structure.png`, `TRT_structure.png`).

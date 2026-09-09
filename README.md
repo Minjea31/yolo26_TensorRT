@@ -171,6 +171,8 @@ backbone/neck-head/Concat·Upsample/Detect 색 구분, skip 연결 강조. `find
 > `BN` 은 conv 에 fold 되어 사라지고, `SiLU` 는 적용마다 `pointwise` 커널로 나뉜다.
 > 생성: `python TensorRT/kernel_compare.py` (CUDA 없으면 leaf 어림값)
 
+> 커널 타입 자체가 뭔지 (`CaskConvolution`·`PointWiseV2`·`Reformat`·myelin `kgen` …), `trt.LayerType` 49종 카탈로그, FP32/FP16 엔진에 쓰인 커널 11종 상세·비교 → [`TensorRT/trt_kernel_types.md`](TensorRT/trt_kernel_types.md)
+
 ## 정확도·속도: 원본 `best.pt` vs TRT FP32 vs TRT FP16
 
 `yolo26/eval.py` 로 원본 `model/best.pt` 와 두 엔진(`best.engine` FP32, `best_fp16.engine` FP16)을

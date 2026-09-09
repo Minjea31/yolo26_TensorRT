@@ -24,6 +24,12 @@
 | `compare_pt_trt.py` | **`.pt` 모듈(24개) ↔ TRT 커널** 집계 비교 — **표** → [`pt_vs_trt.md`](../pt_vs_trt.md) (FP32 · 316커널). `--engine-json best_fp16.engine.layers.json --out pt_vs_trt_fp16.md` 로 [`pt_vs_trt_fp16.md`](../pt_vs_trt_fp16.md) (FP16 · 221커널). 각 `model.N` 을 `내부 leaf 레이어 수 → TRT 커널 수` 로. `--onnx` 명시 시 가운데 ONNX 노드 수 추가. 상세: [`compare_pt_trt.md`](compare_pt_trt.md) |
 | `kernel_compare.py` | **`.pt` 구조 ↔ TRT 구조** 좌우 비교 — **그래프** → `model/kernel_compare.png`. 왼쪽=eager 연산 종류, 오른쪽=TRT 커널 종류, 가운데 점선=`연산 수→커널 수`, 컬럼 안 체인+skip. 상세: [`kernel_compare.md`](kernel_compare.md) |
 
+## 참고 문서 (코드 아님)
+
+| 문서 | 내용 |
+|---|---|
+| [`trt_kernel_types.md`](trt_kernel_types.md) | TensorRT 커널(레이어) 타입 정리 — `trt.LayerType` 49종 카탈로그 + FP32/FP16 엔진에 실제로 쓰인 커널 11종 상세·비교 |
+
 ## (예정) 구성
 
 | 파일 | 용도 |

@@ -21,10 +21,13 @@ model/best.pt  ->  ONNX  ->  TensorRT 엔진(.engine)  2단계 변환 스크립�
                                            또는 NVIDIA tar/deb 설치 후 PYTHONPATH 설정
     - NVIDIA GPU + 드라이버
 
-산출물:
-    - <weights>.onnx              : 변환된 ONNX (Netron 으로 그래프 확인 가능)
-    - <weights>.engine            : 직렬화된 TensorRT 엔진
-    - <weights>.engine.layers.json: TensorRT 가 fusion/정밀도 적용한 뒤의 레이어 정보
+산출물 (경로 미지정 시 <weights> 이름 기준, 정밀도 플래그가 붙으면 접미사 추가):
+    - best.engine / best_fp16.engine / best_int8.engine / best_fp16_int8.engine
+                                   : 직렬화된 TensorRT 엔진 (--fp16 / --int8 조합에 따라)
+                                     --engine 로 직접 지정하면 그 경로를 그대로 쓴다
+    - best.onnx  (또는 --half 시 best_fp16.onnx) : 변환된 ONNX (Netron 으로 그래프 확인)
+                                     --fp16 만으론 ONNX 는 FP32 그대로 → 접미사 없음
+    - <engine>.layers.json         : TensorRT 가 fusion/정밀도 적용한 뒤의 레이어 정보
                                     ("TensorRT 적용 후 그래프" 그릴 때 쓸 재료)
 """
 from __future__ import annotations
@@ -74,9 +77,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--simplify", action="store_true", help="onnxslim 으로 ONNX 단순화")
     p.add_argument("--half", action="store_true", help="ONNX 자체를 FP16 로 export (CUDA 필요)")
 
-    p.add_argument("--fp16", action="store_true", help="TensorRT FP16 모드로 빌드")
+    p.add_argument("--fp16", action="store_true",
+                   help="TensorRT FP16 모드로 빌드 (경로 미지정 시 best_fp16.engine)")
     p.add_argument("--int8", action="store_true",
-                   help="TensorRT INT8 플래그 (캘리브레이터 없음 → 정확도 주의)")
+                   help="TensorRT INT8 플래그 — 캘리브레이터 없음, 정확도 주의 (best_int8.engine)")
     p.add_argument("--workspace", type=float, default=4.0, help="TensorRT workspace (GiB)")
     p.add_argument("--verbose", action="store_true", help="TensorRT 로그를 VERBOSE 로")
 
@@ -87,15 +91,32 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _default_path(weights: str, given: str | None, suffix: str) -> Path:
-    return Path(given) if given else Path(weights).with_suffix(suffix)
+def _default_path(weights: str, given: str | None, suffix: str, tag: str = "") -> Path:
+    if given:
+        return Path(given)
+    p = Path(weights)
+    stem = f"{p.stem}_{tag}" if tag else p.stem
+    return p.with_name(stem + suffix)
+
+
+def _precision_tag(args: argparse.Namespace) -> str:
+    """정밀도 플래그 → 파일명 접미사 (fp16 / int8 / fp16_int8). 기본 FP32 는 빈 문자열."""
+    parts = []
+    if args.fp16:
+        parts.append("fp16")
+    if args.int8:
+        parts.append("int8")
+    return "_".join(parts)
 
 
 # --------------------------------------------------------------------------- #
 # [1] PyTorch(.pt) -> ONNX   (Ultralytics export)
 # --------------------------------------------------------------------------- #
 def export_onnx(args: argparse.Namespace) -> Path:
-    out = _default_path(args.weights, args.onnx, ".onnx")
+    # ONNX 파일명 접미사는 --half 일 때만 `_fp16` (그 경우 ONNX 가중치 자체가 FP16).
+    # --fp16 은 엔진 정밀도라 ONNX 내용은 안 바뀌므로 접미사 없음.
+    # args.half 는 아래 CUDA 체크에서 꺼질 수 있어 그때 경로를 다시 잡는다.
+    out = _default_path(args.weights, args.onnx, ".onnx", "fp16" if args.half else "")
 
     if args.skip_onnx:
         if not out.exists():
@@ -122,6 +143,7 @@ def export_onnx(args: argparse.Namespace) -> Path:
         else:
             print("      [경고] --half 는 CUDA 필요 → FP32 ONNX 로 진행")
             args.half = False
+            out = _default_path(args.weights, args.onnx, ".onnx", "")
 
     print(f"[1/2] PyTorch → ONNX   {Path(args.weights).name} → {out.name}")
     print(f"      imgsz={args.imgsz}  batch={args.batch}  dynamic={args.dynamic}  "
@@ -172,7 +194,7 @@ def _check_onnx(onnx_path: Path) -> None:
 # [2] ONNX -> TensorRT engine   (TensorRT Python API)
 # --------------------------------------------------------------------------- #
 def build_engine(onnx_path: Path, args: argparse.Namespace) -> Path | None:
-    out = _default_path(args.weights, args.engine, ".engine")
+    out = _default_path(args.weights, args.engine, ".engine", _precision_tag(args))
 
     if args.skip_engine:
         print("[2/2] --skip-engine : 엔진 빌드 건너뜀")

@@ -2,7 +2,7 @@
 
 **YOLO26 nano 모델의 TensorRT 배포를 위한 repo.**
 
-`model/best.pt`(YOLO11n 계열 detector, `task=detect`, 클래스 1개 `CAR`, 24 레이어,
+`model/best.pt`(**YOLO26 nano** detector, `task=detect`, 클래스 1개 `CAR`, 24 레이어,
 약 2.5M 파라미터, in-repo 커스텀 ultralytics 포크 `yolo26/ultralytics` 로 학습)를
 **`.pt` → ONNX → TensorRT 엔진**으로 변환하고, 엔진 추론/벤치마크를 수행하는 것을 목표로 한다.
 
@@ -37,7 +37,7 @@ sudo apt-get install -y graphviz         # visualize_model.py 그래프 렌더�
 수정 시 이 목록을 갱신한다. 각 코드 파일은 같은 이름의 `.md` 문서를 함께 둔다.
 아래 각 항목은 **클릭하면 펼쳐진다.**
 
-파이프라인 순서: **`ori_visualize_model.py` (원본 구조) → `build_trt_engine.py` (.pt→ONNX→engine) → `TRT_visualize_model.py` (TRT 후 구조)**  ·  비교 도구: `TRT_layer_print.py` / `compare_pt_trt.py` / `kernel_compare.py`
+파이프라인 순서: **`ori_visualize_model.py` (원본 구조) → `build_trt_engine.py` (.pt→ONNX→engine) → `TRT_visualize_model.py` (TRT 후 구조)**  ·  구조 비교: `TRT_layer_print.py` / `compare_pt_trt.py` / `kernel_compare.py`  ·  정확도·속도 비교: `yolo26/eval.py`
 
 <details>
 <summary><b><code>TensorRT/ori_visualize_model.py</code></b> — [원본 모델 그래프] best.pt 레이어 구조 → 세로 그래프</summary>
@@ -59,6 +59,7 @@ backbone/neck-head/Concat·Upsample/Detect 색 구분, skip 연결 강조. `find
 
 `best.pt` → **ONNX** → **TensorRT 엔진(.engine)** 2단계 변환.
 [1] Ultralytics `export(format="onnx")`, [2] TensorRT Python API(`Builder`+`OnnxParser`)로 엔진 빌드 (FP16/INT8, workspace, 동적 batch profile, TRT 8/10 API 분기).
+`--fp16` 이면 출력이 `model/best_fp16.engine` (`--int8` → `best_int8.engine`)로 나와 FP32 엔진을 덮어쓰지 않는다. `--engine` 을 직접 주면 그 경로를 그대로 쓴다.
 빌드 후 IO 텐서와 `<engine>.engine.layers.json`(fusion·정밀도 반영 레이어 정보) 덤프. `--skip-onnx`/`--skip-engine` 로 단계 분리. CUDA 디바이스 가드 포함(core dump 방지).
 
 상세: [`TensorRT/build_trt_engine.md`](TensorRT/build_trt_engine.md)
@@ -95,7 +96,7 @@ backbone/neck-head/Concat·Upsample/Detect 색 구분, skip 연결 강조. `find
 
 <br>
 
-원본 `best.pt` 의 24개 nn.Module 이 엔진에서 커널 몇 개로 바뀌었는지 `.pt` 기준으로 집계 → `model/pt_vs_trt.md`.
+원본 `best.pt` 의 24개 nn.Module 이 엔진에서 커널 몇 개로 바뀌었는지 `.pt` 기준으로 집계 → `pt_vs_trt.md` (repo 루트).
 각 `model.N` 을 `레이어 수 (.pt→TRT)` = `내부 leaf 서브모듈 수 → TRT 커널 수` 로 표기. 커널 metadata `[ONNX Layer: /model.N/…]` 로 매칭 (ONNX 파일은 안 읽음).
 `--onnx` 를 명시하면 가운데에 ONNX 노드 수도 추가(참고용, 기본 꺼짐). `conda activate yolo` 필요.
 
@@ -116,11 +117,28 @@ backbone/neck-head/Concat·Upsample/Detect 색 구분, skip 연결 강조. `find
 
 </details>
 
+<details>
+<summary><b><code>yolo26/eval.py</code></b> — [.pt vs TensorRT — 정확도/속도] 같은 데이터셋으로 val → eval_pt_vs_trt.md</summary>
+
+<br>
+
+원본 `model/best.pt` 와 **이미 빌드된** 엔진 `model/best.engine` 을 같은 데이터셋 split
+(기본 `test`) · **batch=1** 로 Ultralytics `val` 돌려 정확도(mAP50-95/50/75·P·R)와
+속도(preprocess/inference/postprocess ms)를 나란히 비교 → `eval_pt_vs_trt.md` (repo 루트).
+엔진은 **재변환하지 않고** 그대로 로드한다 (엔진 새로 만들 땐 `build_trt_engine.py`).
+정적 batch=1 엔진이라 batch 는 1 고정. val 산출물은 `runs/eval/{pt,trt}/`.
+`--engine model/best_fp16.engine` 로 FP16 엔진도 같은 방식으로 비교.
+이 repo 기준 정확도 거의 동일(mAP50-95 −1.5%p 이내)·추론 FP32 2.4× / FP16 5.2× 빠름. `conda activate yolo` 필요.
+
+상세: [`yolo26/eval.md`](yolo26/eval.md)
+
+</details>
+
 ## 모델 구조: 원본 vs TensorRT
 
 `ori_visualize_model.py` 와 `TRT_visualize_model.py` 의 출력 (둘 다 세로 방향).
 왼쪽은 원본 `best.pt` 의 24개 레이어, 오른쪽은 TensorRT 엔진이 fusion·정밀도 적용을
-끝낸 뒤의 구조를 원본 `model.N` 단계 단위로 묶은 것 (FP32 엔진 기준).
+끝낸 뒤의 구조를 원본 `model.N` 단계 단위로 묶은 것 (FP32 엔진 기준 316 커널 · FP16 엔진은 221 로 더 줄어든다).
 
 <table>
 <tr>
@@ -150,3 +168,32 @@ backbone/neck-head/Concat·Upsample/Detect 색 구분, skip 연결 강조. `find
 > 늘어난 건 `model.9`(SPPF)·`model.10`(C2PSA) 둘뿐 — 값싼 레이아웃 변환 커널(`reformat`/`noop`) 삽입.
 > `BN` 은 conv 에 fold 되어 사라지고, `SiLU` 는 적용마다 `pointwise` 커널로 나뉜다.
 > 생성: `python TensorRT/kernel_compare.py` (CUDA 없으면 leaf 어림값)
+
+## 정확도·속도: 원본 `best.pt` vs TRT FP32 vs TRT FP16
+
+`yolo26/eval.py` 로 원본 `model/best.pt` 와 두 엔진(`best.engine` FP32, `best_fp16.engine` FP16)을
+같은 데이터셋 split(`test`) · **batch=1** · imgsz=640 으로 Ultralytics `val` 돌린 결과. (생성일 2026-09-09)
+
+### 정확도 (괄호 = 원본 대비 Δ)
+
+| 지표 | 원본 `best.pt` | TRT FP32 | TRT FP16 |
+|---|--:|--:|--:|
+| mAP50-95 | 0.8534 | 0.8399 (−0.0135) | 0.8410 (−0.0124) |
+| mAP50 | 0.9810 | 0.9827 (+0.0016) | 0.9827 (+0.0016) |
+| mAP75 | 0.9582 | 0.9440 (−0.0141) | 0.9406 (−0.0175) |
+| Precision | 0.9943 | 0.9592 (−0.0351) | 0.9634 (−0.0309) |
+| Recall | 0.9271 | 0.9799 (+0.0528) | 0.9792 (+0.0521) |
+
+### 속도 (이미지당)
+
+| 구성 | 추론 ms | 합계 ms | 엔진 크기 | `.pt` 대비 배속 (추론 / 합계) |
+|---|--:|--:|--:|--:|
+| 원본 `best.pt` | ~7–8 | ~7.7–8.9 | 5.2 MB (`.pt`) | 1.00× / 1.00× |
+| TRT FP32 (`best.engine`) | 3.02 | 3.66 | ~15 MB | **2.40× / 2.11×** |
+| TRT FP16 (`best_fp16.engine`) | 1.60 | 2.21 | ~8.2 MB | **5.24× / 4.05×** |
+
+> **정확도**: FP32·FP16 둘 다 원본과 사실상 동일 (mAP50-95 −1.5%p 이내). FP16 이 오히려 FP32 엔진보다 mAP50-95 가 근소하게 높다(둘 다 오차 범위). P↓ / R↑ 는 커널 fusion·연산 순서로 confidence 분포가 미세하게 달라져 생기며 mAP 총합은 유지된다.
+> **속도**: FP16 이 추론 **5.2×** / 전체 **4.0×** 빠르고, 엔진끼리 비교해도 FP16 이 FP32 보다 추론 **1.9× 빠름** (3.02 → 1.60 ms). 가중치가 반정밀이라 엔진 크기도 절반, fusion 이 더 적극적이라 커널 수도 316 → 221.
+> 배속은 각 엔진을 잰 **같은 `eval.py` 실행의 `.pt` 기준** 비율이다 (`.pt` 추론 절대값은 실행마다 7~8 ms 로 흔들려 절대 ms 를 직접 빼면 안 됨).
+> 상세: [`eval_pt_vs_trt.md`](eval_pt_vs_trt.md) (FP32) · [`eval_pt_vs_trt_fp16.md`](eval_pt_vs_trt_fp16.md) (FP16)
+> 재현: `python yolo26/eval.py` · `python yolo26/eval.py --engine model/best_fp16.engine --out eval_pt_vs_trt_fp16.md`

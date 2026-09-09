@@ -95,6 +95,6 @@ python TensorRT/ori_visualize_model.py --rankdir LR --no-shapes
 
 ## 예시 결과 (현재 `best.pt`)
 
-- YOLO11n 계열, `task=detect`, 클래스 1개 `['CAR']`, **24 레이어**, 약 **2.5M 파라미터**
+- **YOLO26 nano**, `task=detect`, 클래스 1개 `['CAR']`, **24 레이어**, 약 **2.5M 파라미터**
 - backbone(0–10): `Conv → C3k2 → SPPF → C2PSA`
 - head(11–23): PAN-FPN (`Upsample`/`Concat`/`C3k2`) + `Detect`([16, 19, 22] 입력, end2end 출력 `1x300x6`)

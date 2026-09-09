@@ -5,7 +5,7 @@
 - 원본 가중치: `model/best.pt`
 - 엔진 레이어 정보: `model/best.engine.layers.json`
 - 엔진 IO: `['images', 'output0']`
-- 생성일: 2026-09-08
+- 생성일: 2026-09-09
 
 ## 요약
 

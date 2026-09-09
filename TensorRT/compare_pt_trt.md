@@ -2,7 +2,7 @@
 
 **[`.pt` vs TensorRT 구조 비교]** 원본 `best.pt` 의 24개 nn.Module(`model.0`~`model.23`)
 각각이 TensorRT 엔진에서 **커널 몇 개로, 어떤 타입·정밀도로** 바뀌었는지 `.pt` 기준으로
-나란히 표로 정리한다 → `model/pt_vs_trt.md`.
+나란히 표로 정리한다 → `pt_vs_trt.md` (repo 루트).
 
 | 비교 축 | 스크립트 |
 |---|---|
@@ -49,7 +49,7 @@
 ```bash
 conda activate yolo
 
-python TensorRT/compare_pt_trt.py                       # .pt → TRT  (기본) → model/pt_vs_trt.md
+python TensorRT/compare_pt_trt.py                       # .pt → TRT  (기본) → pt_vs_trt.md (repo 루트)
 python TensorRT/compare_pt_trt.py --no-shapes           # forward 패스 생략(빠름, .pt shape 열 비움)
 python TensorRT/compare_pt_trt.py --onnx model/best.onnx  # (선택) 가운데에 ONNX 노드 수도
 ```
@@ -59,11 +59,11 @@ python TensorRT/compare_pt_trt.py --onnx model/best.onnx  # (선택) 가운데�
 | `--weights` | `model/best.pt` | 원본 가중치 |
 | `--engine-json` | `model/best.engine.layers.json` | 엔진 레이어 정보 JSON |
 | `--onnx` | *(꺼짐)* | 명시하면 표 가운데에 ONNX 노드 수 추가 (`.pt→ONNX→TRT`) |
-| `--out` | `model/pt_vs_trt.md` | 출력 Markdown |
+| `--out` | `pt_vs_trt.md` | 출력 Markdown (repo 루트) |
 | `--imgsz` | `640` | shape 관측용 더미 입력 크기 |
 | `--no-shapes` | off | forward 패스를 건너뛰고 `.pt` 출력 shape 표기 생략 |
 
-## 산출물 (`model/pt_vs_trt.md`)
+## 산출물 (`pt_vs_trt.md`, repo 루트)
 
 1. **요약** — `.pt` 모듈 수·내부 leaf 레이어 수·params, TRT 커널 수,
    전체 흐름(`.pt leaf → TRT`), 레이아웃 변환만 남은 모듈(Concat)

@@ -24,18 +24,21 @@
 ```bash
 conda activate yolo
 
-# 전체 파이프라인 (FP16 엔진)
+# 전체 파이프라인 (FP32 엔진) → model/best.engine
+python TensorRT/build_trt_engine.py
+
+# FP16 엔진 → model/best_fp16.engine  (FP32 를 안 덮어씀)
 python TensorRT/build_trt_engine.py --fp16
 
-# 경로/해상도 지정
+# 경로/해상도 직접 지정 (--engine 을 주면 접미사 규칙 대신 그 경로 사용)
 python TensorRT/build_trt_engine.py \
     --weights model/best.pt --imgsz 640 --fp16 --workspace 4 \
-    --onnx model/best.onnx --engine model/best.engine
+    --onnx model/best.onnx --engine model/best_fp16.engine
 
 # [1]만 — ONNX 까지만 만들기 (GPU 불필요)
 python TensorRT/build_trt_engine.py --skip-engine
 
-# [2]만 — 기존 ONNX 재사용해서 엔진만
+# [2]만 — 기존 FP32 ONNX 재사용해서 FP16 엔진만 → model/best_fp16.engine
 python TensorRT/build_trt_engine.py --skip-onnx --fp16
 
 # 동적 batch (1 ~ max-batch)
@@ -47,15 +50,15 @@ python TensorRT/build_trt_engine.py --dynamic --max-batch 8 --fp16
 | 옵션 | 기본값 | 설명 |
 |---|---|---|
 | `--weights` | `model/best.pt` | 입력 가중치 |
-| `--onnx` / `--engine` | weights 와 같은 이름 | 출력 경로 |
+| `--onnx` / `--engine` | weights 이름 + 정밀도 접미사 | 출력 경로. 직접 주면 그 경로를 그대로 사용 |
 | `--imgsz` | `640` | 입력 해상도(정사각) |
 | `--opset` | ultralytics 기본값 | ONNX opset |
 | `--batch` | `1` | 정적 batch 크기 |
 | `--dynamic` / `--max-batch` | off / `8` | 동적 batch ONNX + optimization profile |
 | `--simplify` | off | `onnxslim` 으로 ONNX 단순화 (패키지 필요) |
-| `--half` | off | ONNX 자체를 FP16 로 export (CUDA 필요) |
-| `--fp16` | off | TensorRT FP16 모드 |
-| `--int8` | off | TensorRT INT8 플래그만 (캘리브레이터 없음 → 정확도 주의) |
+| `--half` | off | ONNX 자체를 FP16 로 export (CUDA 필요) → `best_fp16.onnx` |
+| `--fp16` | off | TensorRT FP16 모드 → `best_fp16.engine` |
+| `--int8` | off | TensorRT INT8 플래그만 (캘리브레이터 없음 → 정확도 주의) → `best_int8.engine` |
 | `--workspace` | `4.0` | TensorRT workspace (GiB) |
 | `--verbose` | off | TensorRT 로그 VERBOSE |
 | `--skip-onnx` / `--skip-engine` | off | 단계 건너뛰기 |
@@ -63,11 +66,20 @@ python TensorRT/build_trt_engine.py --dynamic --max-batch 8 --fp16
 
 ## 산출물
 
+경로를 안 주면 `--weights` 이름(`best`)에 **정밀도 접미사**가 붙는다:
+
+| 실행 | 엔진 파일 |
+|---|---|
+| (기본) | `model/best.engine` |
+| `--fp16` | `model/best_fp16.engine` |
+| `--int8` | `model/best_int8.engine` |
+| `--fp16 --int8` | `model/best_fp16_int8.engine` |
+
 | 파일 | 내용 |
 |---|---|
-| `<weights>.onnx` | 변환된 ONNX. [Netron](https://netron.app) 으로 그래프 확인 |
-| `<weights>.engine` | 직렬화된 TensorRT 엔진 |
-| `<weights>.engine.layers.json` | TensorRT 가 **fusion·정밀도 적용을 끝낸 뒤**의 레이어 목록. `EngineInspector` + `ProfilingVerbosity.DETAILED` 로 추출. **"TensorRT 적용 후 그래프"** 를 그릴 때 이 파일을 입력으로 쓰면 됨 |
+| `<weights>.onnx` | 변환된 ONNX. [Netron](https://netron.app) 으로 그래프 확인. `--fp16` 만으론 FP32 그대로(`best.onnx`), `--half` 면 `best_fp16.onnx` |
+| `<weights>[_fp16].engine` | 직렬화된 TensorRT 엔진 (위 표) |
+| `<engine>.layers.json` | TensorRT 가 **fusion·정밀도 적용을 끝낸 뒤**의 레이어 목록. `EngineInspector` + `ProfilingVerbosity.DETAILED` 로 추출. **"TensorRT 적용 후 그래프"** 를 그릴 때 이 파일을 입력으로 쓰면 됨 |
 
 콘솔에는 각 단계 진행 상황, ONNX/엔진 IO 텐서(이름·shape·dtype), 레이어 개수가 출력된다.
 

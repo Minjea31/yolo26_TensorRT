@@ -17,7 +17,7 @@ TRT 커널 metadata(`[ONNX Layer: /model.N/...]`)에 그대로 남는다. 그걸
     conda activate yolo                         # torch + ultralytics 필요 (.pt 로드)
     python TensorRT/compare_pt_trt.py
     python TensorRT/compare_pt_trt.py --weights model/best.pt \
-        --engine-json model/best.engine.layers.json --out model/pt_vs_trt.md
+        --engine-json model/best.engine.layers.json --out pt_vs_trt.md
     python TensorRT/compare_pt_trt.py --no-shapes            # forward 패스 생략
 
 입력 JSON 이 없으면 먼저:
@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--onnx", default="",
                    help="(선택) 원본 ONNX 경로. 주면 표 가운데에 ONNX 노드 수도 끼워 "
                         "'.pt→ONNX→TRT' 로 보여준다. 기본은 끔 = '.pt→TRT' 만")
-    p.add_argument("--out", default="model/pt_vs_trt.md", help="출력 Markdown 경로")
+    p.add_argument("--out", default="pt_vs_trt.md", help="출력 Markdown 경로 (repo 루트 기준)")
     p.add_argument("--imgsz", type=int, default=640, help="shape 관측용 더미 입력 크기")
     p.add_argument("--no-shapes", action="store_true",
                    help="forward 패스를 건너뛰고 .pt 출력 shape 표기를 생략")

@@ -1,8 +1,20 @@
 # ── Claude Code ──────────────────────────────────────────────
-.claude/                 # 프로젝트 로컬 Claude Code 설정·커맨드·에이전트·스킬
-CLAUDE.local.md          # 개인용 메모 (팀 공유용은 CLAUDE.md 로, 이건 커밋 안 함)
-.claude.json             # 로컬 상태/캐시
+# 프로젝트 로컬 Claude Code 설정·커맨드·에이전트·스킬
+.claude/
+# 개인용 메모 (팀 공유용은 CLAUDE.md 로, 이건 커밋 안 함)
+CLAUDE.local.md
+# 로컬 상태/캐시
+.claude.json
 
 # ── Python ───────────────────────────────────────────────────
-__pycache__/             # 형제 스크립트 import 시 생기는 바이트코드 캐시
+# 형제 스크립트 import 시 생기는 바이트코드 캐시
+__pycache__/
 *.pyc
+
+# ── 산출물 ───────────────────────────────────────────────────
+# yolo26/eval.py 의 Ultralytics val 산출물 (PR curve 등)
+runs/
+
+# ── 대용량 데이터 ────────────────────────────────────────────
+# ROS bag (예: 2_compressed_fixed_frame.bag ~1.7GB) — repo 에 안 올림
+*.bag

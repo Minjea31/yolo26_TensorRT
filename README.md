@@ -99,8 +99,9 @@ backbone/neck-head/Concat·Upsample/Detect 색 구분, skip 연결 강조. `find
 원본 `best.pt` 의 24개 nn.Module 이 엔진에서 커널 몇 개로 바뀌었는지 `.pt` 기준으로 집계 → `pt_vs_trt.md` (repo 루트).
 각 `model.N` 을 `레이어 수 (.pt→TRT)` = `내부 leaf 서브모듈 수 → TRT 커널 수` 로 표기. 커널 metadata `[ONNX Layer: /model.N/…]` 로 매칭 (ONNX 파일은 안 읽음).
 `--onnx` 를 명시하면 가운데에 ONNX 노드 수도 추가(참고용, 기본 꺼짐). `conda activate yolo` 필요.
+`--engine-json model/best_fp16.engine.layers.json --out pt_vs_trt_fp16.md` 로 FP16 엔진 판도 생성 → [`pt_vs_trt_fp16.md`](pt_vs_trt_fp16.md).
 
-상세: [`TensorRT/compare_pt_trt.md`](TensorRT/compare_pt_trt.md)
+산출물: [`pt_vs_trt.md`](pt_vs_trt.md) (FP32) · [`pt_vs_trt_fp16.md`](pt_vs_trt_fp16.md) (FP16) · 상세: [`TensorRT/compare_pt_trt.md`](TensorRT/compare_pt_trt.md)
 
 </details>
 
@@ -138,7 +139,8 @@ backbone/neck-head/Concat·Upsample/Detect 색 구분, skip 연결 강조. `find
 
 `ori_visualize_model.py` 와 `TRT_visualize_model.py` 의 출력 (둘 다 세로 방향).
 왼쪽은 원본 `best.pt` 의 24개 레이어, 오른쪽은 TensorRT 엔진이 fusion·정밀도 적용을
-끝낸 뒤의 구조를 원본 `model.N` 단계 단위로 묶은 것 (FP32 엔진 기준 316 커널 · FP16 엔진은 221 로 더 줄어든다).
+끝낸 뒤의 구조를 원본 `model.N` 단계 단위로 묶은 것.
+단계별 커널 수 표: [`pt_vs_trt.md`](pt_vs_trt.md) (FP32 엔진 · 316 커널) · [`pt_vs_trt_fp16.md`](pt_vs_trt_fp16.md) (FP16 엔진 · 221 커널, SiLU 가 conv 로 더 fused 됨).
 
 <table>
 <tr>

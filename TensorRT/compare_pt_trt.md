@@ -52,6 +52,10 @@ conda activate yolo
 python TensorRT/compare_pt_trt.py                       # .pt → TRT  (기본) → pt_vs_trt.md (repo 루트)
 python TensorRT/compare_pt_trt.py --no-shapes           # forward 패스 생략(빠름, .pt shape 열 비움)
 python TensorRT/compare_pt_trt.py --onnx model/best.onnx  # (선택) 가운데에 ONNX 노드 수도
+
+# FP16 엔진 판 → pt_vs_trt_fp16.md
+python TensorRT/compare_pt_trt.py \
+    --engine-json model/best_fp16.engine.layers.json --out pt_vs_trt_fp16.md
 ```
 
 | 옵션 | 기본값 | 설명 |
@@ -80,9 +84,17 @@ python TensorRT/compare_pt_trt.py --onnx model/best.onnx  # (선택) 가운데�
 - `88 → 66` (model.23 Detect) : end2end decode/NMS 까지 펼쳐졌는데도 leaf 수보다 적음.
 - `--onnx` 를 주면 `9 → 15 → 10` 처럼 가운데에 ONNX 노드 수가 들어간다 (참고용).
 
-## 이 저장소 기준 결과 (FP32 엔진)
+## 이 저장소 기준 결과
 
-| | 값 |
+| 엔진 | TRT 커널 | 산출물 |
+|---|--:|---|
+| FP32 (`best.engine`) | 316개 (매핑 313 + post 3) | [`pt_vs_trt.md`](../pt_vs_trt.md) |
+| FP16 (`best_fp16.engine`) | 221개 (매핑 218 + post 3) | [`pt_vs_trt_fp16.md`](../pt_vs_trt_fp16.md) |
+
+아래 발췌는 FP32 기준. FP16 은 SiLU 가 conv epilogue 로 더 fused 되고 (`caskjitconv`) 포맷
+변환 커널이 줄어 C3k2 블록이 `19 → 24~26` 대신 `19 → 13` 수준으로 내려간다.
+
+| | 값 (FP32) |
 |---|---|
 | `.pt` 모듈 | 24개 · 내부 leaf 레이어 277개 · 2.5M params |
 | TRT 커널 | 316개 (매핑 313 + post 3) |
